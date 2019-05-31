@@ -1,0 +1,8 @@
+{
+    "index": {
+        "fields": [ "order_id" ]
+    },
+    "ddoc": "pay",
+    "name": "order-id",
+    "type": "json"
+}

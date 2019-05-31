@@ -1,0 +1,13 @@
+{
+    "index": {
+        "partial_filter_selector": {
+            "@pending_balance": {
+                "$exists": true
+            }
+        },
+        "fields": [ "account", "pending_time" ]
+    },
+    "ddoc": "pending-balance",
+    "name": "pending-time",
+    "type": "json"
+}

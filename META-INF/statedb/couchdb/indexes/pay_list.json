@@ -1,0 +1,13 @@
+{
+    "index": {
+        "partial_filter_selector": {
+            "@pay": {
+                "$exists": true
+            }
+        },
+        "fields": [ "@pay", "created_time" ]
+    },
+    "ddoc": "pay",
+    "name": "list",
+    "type": "json"
+}

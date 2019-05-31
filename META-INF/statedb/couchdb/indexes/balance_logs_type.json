@@ -1,0 +1,12 @@
+{
+    "index": {
+        "fields": [
+            { "@balance_log": "desc" },
+            { "type": "desc"},
+            { "created_time": "desc" }
+        ]
+    },
+    "ddoc": "balance",
+    "name": "logs-type",
+    "type": "json"
+}
