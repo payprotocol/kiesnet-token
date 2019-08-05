@@ -214,8 +214,10 @@ func CreateQueryPayByOrderID(orderID string) string {
 const QueryPruneFee = `{
 	"selector":{
 		"@fee":"%s",
-		"created_time":{"$gt":"%s"},
-		"created_time":{"$lte":"%s"}
+		"$and":[
+			{"created_time":{"$gt":"%s"}},
+			{"created_time":{"$lte":"%s"}}
+		]
 	},
 	"sort":["created_time"],
 	"use_index":["fee","list"]
