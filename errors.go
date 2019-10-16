@@ -30,6 +30,16 @@ func (e NotIssuedTokenError) Error() string {
 	return fmt.Sprintf("the token [%s] is not issued", e.code)
 }
 
+// NotInitLastPrunedFeeIDError is an error there is no LastPrunedFeeID state in the world state.
+type NotInitLastPrunedFeeIDError struct {
+	ResponsibleErrorImpl
+	tokenCode string
+}
+
+func (e NotInitLastPrunedFeeIDError) Error() string {
+	return fmt.Sprintf("the last pruned fee id of the token [%s] is not initialized", e.tokenCode)
+}
+
 // InvalidAccessError _
 type InvalidAccessError struct {
 	ResponsibleErrorImpl

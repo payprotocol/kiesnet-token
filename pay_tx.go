@@ -402,36 +402,45 @@ func payPrune(stub shim.ChaincodeStubInterface, params []string) peer.Response {
 	if nil != err {
 		return responseError(err, "failed to get pay(s) to prune")
 	}
-	// sum - fee
-	applied := paySum.Sum.Copy().Add(paySum.Fee.Copy().Neg())
 
-	// Add balance
-	bal.Amount.Add(applied)
-	bal.UpdatedTime = ts
-	if 0 != len(paySum.End) {
-		bal.LastPrunedPayID = paySum.End
+	if paySum.Count > 0 {
+		// sum - fee
+		applied := paySum.Sum.Copy().Add(paySum.Fee.Copy().Neg())
+
+		// Add balance
+		bal.Amount.Add(applied)
+		bal.UpdatedTime = ts
+		if 0 != len(paySum.End) {
+			bal.LastPrunedPayID = paySum.End
+		}
+
+		if err := bb.PutBalance(bal); nil != err {
+			return responseError(err, "failed to update balance")
+		}
+
+		if _, err = NewFeeStub(stub).CreateFee(account.GetID(), *paySum.Fee); err != nil {
+			return shim.Error(err.Error())
+		}
+
+		// balance log
+		rbl := NewBalancePrunePayLog(bal, *applied, paySum.Start, paySum.End)
+		rbl.CreatedTime = ts
+		if err = bb.PutBalanceLog(rbl); err != nil {
+			return shim.Error(err.Error())
+		}
+
+		data, err := json.Marshal(paySum)
+		if nil != err {
+			return responseError(err, "failed to marshal the pay prune result")
+		}
+		return shim.Success(data)
 	}
 
-	if err := bb.PutBalance(bal); nil != err {
-		return responseError(err, "failed to update balance")
-	}
-
-	if _, err = NewFeeStub(stub).CreateFee(account.GetID(), *paySum.Fee); err != nil {
-		return shim.Error(err.Error())
-	}
-
-	// balance log
-	rbl := NewBalancePrunePayLog(bal, *applied, paySum.Start, paySum.End)
-	rbl.CreatedTime = ts
-	if err = bb.PutBalanceLog(rbl); err != nil {
-		return shim.Error(err.Error())
-	}
-
-	data, err := json.Marshal(paySum)
-	if nil != err {
-		return responseError(err, "failed to marshal the pay prune result")
-	}
-	return shim.Success(data)
+	//if there is no pay to prune
+	//XXX The error message is parsed to throw Exception at java sdk.
+	// DO NOT EDIT IT.
+	// DO NOT USE THIS MESSAGE ELSEWHERE.
+	return shim.Error("found no record to prune.")
 }
 
 // params[0] : token code | account address

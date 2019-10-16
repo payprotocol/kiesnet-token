@@ -155,23 +155,45 @@ func feePrune(stub shim.ChaincodeStubInterface, params []string) peer.Response {
 	// ISSUE : What if target account is suspended?
 
 	stime := txtime.Unix(0, 0)
-	if len(token.LastPrunedFeeID) > 0 {
-		//TODO check fee id parsing logic
-		s, err := strconv.ParseInt(token.LastPrunedFeeID[0:10], 10, 64)
-		if nil != err {
-			return responseError(err, "failed to get seconds from timestamp")
-		}
-		//TODO check fee id parsing logic
-		n, err := strconv.ParseInt(token.LastPrunedFeeID[10:19], 10, 64)
-		if nil != err {
-			return responseError(err, "failed to get nanoseconds from timestamp")
-		}
-		stime = txtime.Unix(s, n)
-	}
 
 	ts, err := txtime.GetTime(stub)
 	if nil != err {
 		return responseError(err, "failed to get the timestamp")
+	}
+
+	lb := NewLastPrunedFeeIDStub(stub)
+	lastPrunedFeeID, err := lb.GetLastPrunedFeeID(code)
+	if nil != err {
+		//TODO: unused code block from line 167 to line 180 after v1.2.5 version.
+		if _, ok := err.(NotInitLastPrunedFeeIDError); ok {
+			// migration
+			lastPrunedFeeID = &LastPrunedFeeID{
+				DOCTYPEID: code,
+				FeeID:     token.LastPrunedFeeID,
+			}
+			// this last_pruned_fee_id field will be never used after migration. delete it.
+			token.LastPrunedFeeID = ""
+			err = tb.PutToken(token)
+			if err != nil {
+				return responseError(err, "failed to update token state of removing last_pruned_fee_id")
+			}
+		} else {
+			return responseError(err, "failed to get the last pruned fee id")
+		}
+	}
+
+	if len(lastPrunedFeeID.FeeID) > 0 {
+		//TODO check fee id parsing logic
+		s, err := strconv.ParseInt(lastPrunedFeeID.FeeID[0:10], 10, 64)
+		if nil != err {
+			return responseError(err, "failed to get seconds from timestamp")
+		}
+		//TODO check fee id parsing logic
+		n, err := strconv.ParseInt(lastPrunedFeeID.FeeID[10:19], 10, 64)
+		if nil != err {
+			return responseError(err, "failed to get nanoseconds from timestamp")
+		}
+		stime = txtime.Unix(s, n)
 	}
 
 	var etime *txtime.Time
@@ -218,24 +240,32 @@ func feePrune(stub shim.ChaincodeStubInterface, params []string) peer.Response {
 		if nil != err {
 			return responseError(err, "failed to update genesis account balance")
 		}
-		token.LastPrunedFeeID = feeSum.End
-		err = tb.PutToken(token)
+		lastPrunedFeeID.FeeID = feeSum.End
+		lastPrunedFeeID.UpdatedTime = ts
+		err = lb.PutLastPrunedFeeID(lastPrunedFeeID)
 		if nil != err {
-			return responseError(err, "failed to update the token")
+			return responseError(err, "failed to update the last pruned fee id")
 		}
+
+		// balance log
+		pruneLog := NewBalancePruneFeeLog(bal, *feeSum.Sum, feeSum.Start, feeSum.End)
+		pruneLog.CreatedTime = ts
+		err = bb.PutBalanceLog(pruneLog)
+		if nil != err {
+			return responseError(err, "failed to save balance log")
+		}
+
+		data, err := json.Marshal(feeSum)
+		if nil != err {
+			return responseError(err, "failed to marshal the fee prune result")
+		}
+		return shim.Success(data)
 	}
 
-	// balance log
-	pruneLog := NewBalancePruneFeeLog(bal, *feeSum.Sum, feeSum.Start, feeSum.End)
-	pruneLog.CreatedTime = ts
-	err = bb.PutBalanceLog(pruneLog)
-	if nil != err {
-		return responseError(err, "failed to save balance log")
-	}
+	//if there is no fee to prune
+	//XXX The error message is parsed to throw Exception at java sdk.
+	// DO NOT EDIT IT.
+	// DO NOT USE THIS MESSAGE ELSEWHERE.
+	return shim.Error("found no record to prune.")
 
-	data, err := json.Marshal(feeSum)
-	if nil != err {
-		return responseError(err, "failed to marshal the fee prune result")
-	}
-	return shim.Success(data)
 }
